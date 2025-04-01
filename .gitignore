@@ -4,9 +4,4 @@ Debug/
 !.gitignore
 !readme.md
 !.gitkeep
-!Lab6Grader.c
-!Lab6Grader.h
-!Lab6Main.c
-!StringConversion.s
-!StringConversion.h
-!BusyWait.s
+!Lab7Main.c
