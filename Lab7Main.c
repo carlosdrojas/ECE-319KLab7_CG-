@@ -32,16 +32,15 @@ void OutFix(uint32_t n){
 // output to ST7735 0.000cm to 2.000cm
  // write this
 
-  int32_t whole = n / 1000;  // Integer part (e.g., 1 from 1450)
-  int32_t frac = n % 1000;   // Fractional part (e.g., 450 from 1450)
+  int32_t whole = n / 1000;
+  int32_t frac = n % 1000; 
 
-  // Print formatted string to LCD
   printf("d = ");
-  ST7735_OutChar('0' + whole);          // Print '1' for 1.450
+  ST7735_OutChar('0' + whole);        
   ST7735_OutChar('.');
-  ST7735_OutChar('0' + (frac / 100));         // Hundreds place
-  ST7735_OutChar('0' + ((frac / 10) % 10));   // Tens place
-  ST7735_OutChar('0' + (frac % 10));          // Ones place
+  ST7735_OutChar('0' + (frac / 100));       
+  ST7735_OutChar('0' + ((frac / 10) % 10)); 
+  ST7735_OutChar('0' + (frac % 10));        
   ST7735_OutString(" cm");
 }
 
