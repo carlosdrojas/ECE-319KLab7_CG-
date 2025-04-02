@@ -4,6 +4,7 @@
 // Your name
 // Last Modified: 12/26/2024
 
+//#include <cstdint>
 #include <stdio.h>
 #include <stdint.h>
 #include <ti/devices/msp/msp.h>
@@ -30,6 +31,18 @@ void OutFix(uint32_t n){
 // n is integer 0 to 2000
 // output to ST7735 0.000cm to 2.000cm
  // write this
+
+  int32_t whole = n / 1000;  // Integer part (e.g., 1 from 1450)
+  int32_t frac = n % 1000;   // Fractional part (e.g., 450 from 1450)
+
+  // Print formatted string to LCD
+  printf("d = ");
+  ST7735_OutChar('0' + whole);          // Print '1' for 1.450
+  ST7735_OutChar('.');
+  ST7735_OutChar('0' + (frac / 100));         // Hundreds place
+  ST7735_OutChar('0' + ((frac / 10) % 10));   // Tens place
+  ST7735_OutChar('0' + (frac % 10));          // Ones place
+  ST7735_OutString(" cm");
 }
 
 // do not use this function for your final lab solution
@@ -38,13 +51,14 @@ void FloatOutFix(float x){
 // resolution cm
 // x is integer 0 to 2.000
 // output to ST7735 0.000cm to 2.000cm
-  printf("d=%f cm   ",x);  // floating point output
+  printf("d = %1.3f cm   ",x);  // floating point output
 }
 
 uint32_t Data;        // 12-bit ADC
 uint32_t Position;    // 32-bit fixed-point 0.001 cm
 float FloatPosition;  // 32-bit floating-point cm
  // define a semaphore
+uint32_t Flag;
 uint32_t startTime,stopTime;
 uint32_t Offset,ADCtime,Converttime,FloatConverttime,OutFixtime,FloatOutFixtime; // in bus cycles
 uint32_t Time;
@@ -52,7 +66,7 @@ uint32_t Time;
 // use main1 to test slidepot interface
 // connect slidepot pin 2 to ADC1 channel 5, PB18
 // Open TExaSdisplay and see slidepot pin2 go from 0 to 3.3V
-int main(void){ // main1
+int main1(void){ // main1
   __disable_irq();
   PLL_Init(); // set bus speed
   LaunchPad_Init();
@@ -128,7 +142,7 @@ int main3(void){ // main3
 // Position should go from 0 to 2000
 // LCD should show 0.000cm to 2.000 cm
 // OutFixtime is the time to execute OutFix in bus cycles
-int main4(void){ // main4
+int main5(void){ // main4
   __disable_irq();
   PLL_Init(); // set bus speed
   LaunchPad_Init();
@@ -165,7 +179,9 @@ void TIMG12_IRQHandler(void){
     Time++;
     // sample 12-bit ADC0 channel 5, slidepot
     // store data into mailbox
+    Data = ADCin();          // Sample ADC
     // set the semaphore
+    Flag = 1;                  // Synchronize with other threads
     GPIOB->DOUTTGL31_0 = GREEN; // toggle PB27 (minimally intrusive debugging)
   }
 }
@@ -176,7 +192,7 @@ uint8_t TExaS_LaunchPadLogicPB27PB26(void){
 // use scope or logic analyzer to verify real time samples
 // option 1) remove call to TExaS_Init and use a real scope on PB27
 // option 2) use TExaS logic analyzer
-int main5(void){ // main5
+int main(void){ // main5
   __disable_irq();
   PLL_Init(); // set bus speed
   LaunchPad_Init();
@@ -188,27 +204,42 @@ int main5(void){ // main5
   TExaS_Init(0,0,&TExaS_LaunchPadLogicPB27PB26); // PB27 and PB26
   ST7735_PlotClear(0,2000);
     // initialize interrupts on TimerG12 at 30 Hz
+  //TimerG12_IntArm(3000000, 0); // Program 5.5.1, 80M/266667 = 30Hz
+  TimerG12_IntArm(2666666, 0);  // 80MHz, 30 Hz interrupts
 
+
+  
   // initialize semaphore
 
   Time = 0;
+  Flag = 0;
   __enable_irq();
   while(1){
       // write this
 
     // wait for semaphore
+    if (Flag) {
+      Flag = 0;
+      Position = Convert(Data);
+      ST7735_SetCursor(0, 0);
+      OutFix(Position);
+      GPIOB->DOUTTGL31_0 = RED; 
+      Time++;
+      if((Time%15)==0){
+      ST7735_PlotPoint(Position);
+      ST7735_PlotNextErase(); // data plotted at about 2 Hz
+    }
+      
+    }
     // clear the semaphore
-    GPIOB->DOUTTGL31_0 = RED; // toggle PB26 (minimally intrusive debugging)
+   // toggle PB26 (minimally intrusive debugging)
     // toggle red LED2 on Port B, PB26
      // convert Data to Position
      // move cursor to top
     // display distance in top row OutFix
 
-    Time++;
-    if((Time%15)==0){
-      ST7735_PlotPoint(Position);
-      ST7735_PlotNextErase(); // data plotted at about 2 Hz
-    }
+    //Time++;
+    
   }
 }
 
@@ -225,7 +256,7 @@ int main6(void){ // main6
     // ST7735_InitR(INITR_REDTAB); inside ST7735_InitPrintf()
   ST7735_FillScreen(ST7735_BLACK);
   ADCinit(); //PB18 = ADC1 channel 5, slidepot
-  SAC = 1;
+  SAC = 8;
   while(1){int i; uint32_t d,sum;
     sum = 0;
     for(int j=0; j<100; j++){
